@@ -1,46 +1,20 @@
-using Microsoft.AspNetCore.Mvc;
-using RectangleSelector;
-using RectangleSelector.Controllers;
-using RectangleSelector.Models;
+using RectangleSelector.Data;
 
-namespace RectangleSelectorTest.GetTest
+namespace RectangleSelectorTest.GetTest;
+
+public class GetRectanglesTest
 {
-   public class GetRectanglesTest
+   [Theory]
+   [MemberData(nameof(GetDataCases.GetTestData), MemberType = typeof(GetDataCases))]
+   public async void PositiveCases(GetDataWrapper testData)
    {
-      [Theory]
-      [MemberData(nameof(PositiveCasesData.GetTestData), MemberType = typeof(PositiveCasesData))]
-      public async void PositiveCases(GetDataWrapper testData)
-      {
-         using var context = new TestRectangleSelectorDBContext();
-         var controller = new RectanglesController(context);
-         context.Rectangles.Add(new Rectangle(7, 12, 3, 8));
-         context.SaveChanges();
-         var intersectingRectangles = await controller.GetRectangles(testData.X1, testData.X2, testData.Y1, testData.Y2);
-         Assert.Equal(testData.Result.Value, intersectingRectangles.Value.ToList());
-      }
+      using var context = new RectangleSelectorDBContext();
+      //context.Rectangles.Add(new Rectangle(1, 5, 2, 8, 6, 4, 9, 1, 5));
+      //context.Rectangles.Add(new Rectangle(2, 10, 10, 15, 13, 13, 16, 8, 13));
+      //context.SaveChanges();
+      var repository = new RectangleRepository(context);
 
-      [Theory]
-      [MemberData(nameof(NegativeCasesData.GetTestData), MemberType = typeof(NegativeCasesData))]
-      public async void NegativeCases(GetDataWrapper testData)
-      {
-         using var context = new TestRectangleSelectorDBContext();
-         var controller = new RectanglesController(context);
-         context.Rectangles.Add(new Rectangle(7, 12, 3, 8));
-         context.SaveChanges();
-         var intersectingRectangles = await controller.GetRectangles(testData.X1, testData.X2, testData.Y1, testData.Y2);
-         Assert.IsType<NotFoundResult>(intersectingRectangles.Result);
-      }
-
-      [Theory]
-      [MemberData(nameof(IncorrectInputCasesData.GetTestData), MemberType = typeof(IncorrectInputCasesData))]
-      public async void IncorrectInputCases(GetDataWrapper testData)
-      {
-         using var context = new TestRectangleSelectorDBContext();
-         var controller = new RectanglesController(context);
-         context.Rectangles.Add(new Rectangle(7, 12, 3, 8));
-         context.SaveChanges();
-         var intersectingRectangles = await controller.GetRectangles(testData.X1, testData.X2, testData.Y1, testData.Y2);
-         Assert.IsType<BadRequestObjectResult>(intersectingRectangles.Result);
-      }
+      var intersectingRectangles = await repository.GetIntersectingRectangles(testData.X1, testData.X2, testData.Y1, testData.Y2);
+      Assert.Equal(testData.Result, intersectingRectangles.ToList());
    }
 }

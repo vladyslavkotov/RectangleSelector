@@ -1,65 +1,53 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using RectangleSelector.DTOs;
-using RectangleSelector.Models;
+using RectangleSelector.Data;
+using RectangleSelector.Data.DTOs;
 
-namespace RectangleSelector.Controllers
+namespace RectangleSelector.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+public class RectanglesController : ControllerBase
 {
-   [Route("api/[controller]")]
-   [ApiController]
-   public class RectanglesController : ControllerBase
+   private readonly IRectangleRepository _rectangleRepository;
+
+   public RectanglesController(IRectangleRepository repository)
    {
-      private readonly RectangleSelectorDBContext _context;
+      _rectangleRepository = repository;
+   }
 
-      public RectanglesController(RectangleSelectorDBContext context)
+   [HttpGet]
+   public async Task<ActionResult<IEnumerable<RectangleDTO>>> GetRectangles(double s_x1, double s_y1, double s_x2, double s_y2)
+   {
+      var rectangles = await _rectangleRepository.GetIntersectingRectangles(s_x1, s_y1, s_x2, s_y2);
+      if (!rectangles.Any())
       {
-         _context = context;
+         return NotFound();
       }
+      return rectangles.ToList();
+   }
 
-      [HttpGet]
-      public async Task<ActionResult<IEnumerable<RectangleDTO>>> GetRectangles(double x1, double x2, double y1, double y2)
+   [HttpPost]
+   public async Task<ActionResult<RectangleDTO>> CreateRectangle(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+   {
+      try
       {
-         if (x2 > x1 && y2 > y1)
-         {
-            // as per your request to design the controller for a large number of rows, query readability is sacrificed for complete server-side evaluation
-            // I focused on intersecting edges, not overlapping i.e. a larger rectangle completely covering a smaller rectangle does not count as intersecting
-            var rectangles = await _context.Rectangles.Where(r => (x1 < r.X1 || x2 > r.X2 || y1 < r.Y1 || y2 > r.Y2)).
-                                                                              Where(r => (x1 > r.X1 && x1 < r.X2) || (x2 > r.X1 && x2 < r.X2) || (y1 > r.Y1 && y1 < r.Y2) || (y2 > r.Y1 && y2 < r.Y2)).
-                                                                              Select(r => new RectangleDTO(r.X1, r.X2, r.Y1, r.Y2)).ToListAsync();
-            if (rectangles.Count == 0)
-            {
-               return NotFound();
-            }
-            return rectangles;
-         }
-         else
-         {
-            return BadRequest("Please enter coordinates in ascending order i.e. X1, X2, Y1, Y2 where X2 > X1 and Y2 > Y1");
-         }
+         var newRectangle = await _rectangleRepository.CreateNewRectangle(x1, y1, x2, y2, x3, y3, x4, y4);
+         return newRectangle;
       }
-
-      [HttpPost]
-      public async Task<ActionResult<RectangleDTO>> CreateRectangle(double x1, double x2, double y1, double y2)
+      catch (Microsoft.EntityFrameworkCore.DbUpdateException)
       {
-         if (x2 > x1 && y2 > y1)
-         {
-            try
-            {
-               var r = new Rectangle(x1, x2, y1, y2);
-               _context.Rectangles.Add(r);
-               await _context.SaveChangesAsync();
-
-               return new RectangleDTO(r.X1, r.X2, r.Y1, r.Y2);
-            }
-            catch (Microsoft.EntityFrameworkCore.DbUpdateException)
-            {
-               return BadRequest("A Rectangle with these coordinates already exists");
-            }
-         }
-         else
-         {
-            return BadRequest("Please enter coordinates in ascending order i.e. X1, X2, Y1, Y2 where X2 > X1 and Y2 > Y1");
-         }
+         return BadRequest("A Rectangle with these coordinates already exists");
       }
+   }
+
+   [HttpPost]
+   public async Task<ActionResult> DeleteRectangle(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+   {
+      var isDeleted = await _rectangleRepository.DeleteRectangle(x1, y1, x2, y2, x3, y3, x4, y4);
+      if (isDeleted)
+      {
+         return Ok();
+      }
+      return NotFound();
    }
 }
